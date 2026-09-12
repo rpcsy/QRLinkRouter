@@ -73,23 +73,39 @@ jobs:
 
       # 关键：没有 NSCameraUsageDescription，iOS 会在申请相机时直接杀掉进程。
       # 没有 LSApplicationQueriesSchemes，canLaunchUrl 永远返回 false。
-      - name: Inject Info.plist keys
+      - name: Ensure required Info.plist keys
         run: |
           set -e
           PLIST=ios/Runner/Info.plist
           PB=/usr/libexec/PlistBuddy
           test -f "$PLIST"
+
           $PB -c "Set :CFBundleDisplayName QRLinkRouter" "$PLIST" 2>/dev/null \
             || $PB -c "Add :CFBundleDisplayName string QRLinkRouter" "$PLIST"
-          $PB -c "Set :NSCameraUsageDescription 需要相机权限来扫描二维码" "$PLIST" 2>/dev/null \
+
+          # 相机权限：缺失才补。缺少这一项时 iOS 会在申请相机的那一刻直接杀掉进程。
+          $PB -c "Print :NSCameraUsageDescription" "$PLIST" >/dev/null 2>&1 \
             || $PB -c "Add :NSCameraUsageDescription string 需要相机权限来扫描二维码" "$PLIST"
-          $PB -c "Delete :LSApplicationQueriesSchemes" "$PLIST" 2>/dev/null || true
-          $PB -c "Add :LSApplicationQueriesSchemes array" "$PLIST"
-          for s in douyin weixin alipays alipay taobao bilibili xhs pinduoduo https http; do
-            $PB -c "Add :LSApplicationQueriesSchemes: string $s" "$PLIST"
+
+          # URL Scheme 白名单：**以仓库里的 Info.plist 为准**，只在完全缺失时才补默认集合。
+          # 之前的版本会先 Delete 再写死一份列表，导致 plist 里新增的 scheme 被覆盖掉。
+          if ! $PB -c "Print :LSApplicationQueriesSchemes" "$PLIST" >/dev/null 2>&1; then
+            $PB -c "Add :LSApplicationQueriesSchemes array" "$PLIST"
+            for s in weixin douyin alipays alipay taobao bilibili xhs pinduoduo mqq \
+                     qzxy pangguai chaoxing workweixin meituan eleme jd orpheus kwai lark \
+                     dingtalk ccblife uppay xiaoyuanydt zhxy iosamap baidumap ctrip diditaxi \
+                     dianping weibo zhihu kugou qqmusic cmbmobilebank bankcomm https http; do
+              $PB -c "Add :LSApplicationQueriesSchemes: string $s" "$PLIST"
+            done
+          fi
+
+          echo "--- Info.plist 校验 ---"
+          echo "NSCameraUsageDescription: $($PB -c 'Print :NSCameraUsageDescription' "$PLIST")"
+          echo "scheme 条目数: $($PB -c 'Print :LSApplicationQueriesSchemes' "$PLIST" | grep -c '^    ' || true)"
+          for s in mqq qzxy pangguai chaoxing workweixin dingtalk lark dianping qqmusic cmbmobilebank; do
+            $PB -c "Print :LSApplicationQueriesSchemes" "$PLIST" | grep -qx "    $s" \
+              || echo "::warning::Info.plist 缺少 scheme: $s"
           done
-          echo "--- 注入结果 ---"
-          $PB -c "Print :NSCameraUsageDescription" "$PLIST"
           $PB -c "Print :LSApplicationQueriesSchemes" "$PLIST"
 
       - name: Flutter pub get

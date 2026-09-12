@@ -3,10 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/app_constants.dart';
+import '../core/app_theme.dart';
 import '../data/models/app_settings.dart';
 import '../data/qr_cache_store.dart';
+import '../services/regex_router.dart';
+import 'widgets/pressable_scale.dart';
 
 /// 设置页面
+///
+/// 修改点5：整体适配新的深色主题（#121212 背景 / #1E1E1E 卡片 / #2979FF 主色），
+/// 输入框、开关、说明块、按钮统一样式，并加入按压缩放反馈。
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
     super.key,
@@ -60,7 +66,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
-  // ---------- 保存 ----------
+  // ---------- 保存（原有逻辑不变） ----------
 
   void _onFieldChanged() {
     _debounce?.cancel();
@@ -85,25 +91,32 @@ class _SettingsPageState extends State<SettingsPage> {
     await _flush();
   }
 
-  // ---------- 清除缓存 ----------
+  // ---------- 清除缓存（原有逻辑不变） ----------
 
   Future<void> _confirmClearCache() async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
         title: const Text('清除本地二维码缓存'),
         content: Text(
           '将删除本机保存的全部 $_cacheCount 条识别记录。\n\n'
           '清除后再次扫描相同二维码会重新走正则或 AI 识别，可能消耗 token。',
+          style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('取消'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('确认清除'),
+          PressableScale(
+            child: FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('确认清除'),
+            ),
           ),
         ],
       ),
@@ -126,9 +139,44 @@ class _SettingsPageState extends State<SettingsPage> {
     Navigator.of(context).pop();
   }
 
+  /// 统一输入框样式（修改点5）
+  InputDecoration _decoration({
+    required String label,
+    required IconData icon,
+    String? hint,
+    String? helper,
+    Widget? suffix,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      helperText: helper,
+      helperStyle: const TextStyle(color: AppColors.textFaint, fontSize: 11.5),
+      prefixIcon: Icon(icon, color: AppColors.textSecondary),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: AppColors.inputFill,
+      labelStyle: const TextStyle(color: AppColors.textSecondary),
+      hintStyle: const TextStyle(color: AppColors.textFaint),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.divider),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.divider),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           tooltip: '返回扫码主页',
@@ -146,12 +194,12 @@ class _SettingsPageState extends State<SettingsPage> {
             keyboardType: TextInputType.url,
             autocorrect: false,
             enableSuggestions: false,
-            decoration: const InputDecoration(
-              labelText: 'API接口地址',
-              hintText: AppConstants.baseUrlHint,
-              prefixIcon: Icon(Icons.link),
-              border: OutlineInputBorder(),
-              helperText: 'codex-proxy 地址，OpenAI 兼容格式，结尾一般带 /v1',
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: _decoration(
+              label: 'API接口地址',
+              icon: Icons.link,
+              hint: AppConstants.baseUrlHint,
+              helper: 'codex-proxy 地址，OpenAI 兼容格式，结尾一般带 /v1',
             ),
           ),
           const SizedBox(height: 16),
@@ -160,14 +208,15 @@ class _SettingsPageState extends State<SettingsPage> {
             obscureText: _obscureKey,
             autocorrect: false,
             enableSuggestions: false,
-            decoration: InputDecoration(
-              labelText: 'API Key',
-              prefixIcon: const Icon(Icons.key),
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: _decoration(
+              label: 'API Key',
+              icon: Icons.key,
+              suffix: IconButton(
                 tooltip: _obscureKey ? '显示' : '隐藏',
                 icon: Icon(
                   _obscureKey ? Icons.visibility_off : Icons.visibility,
+                  color: AppColors.textSecondary,
                 ),
                 onPressed: () => setState(() => _obscureKey = !_obscureKey),
               ),
@@ -178,10 +227,10 @@ class _SettingsPageState extends State<SettingsPage> {
             controller: _modelCtrl,
             autocorrect: false,
             enableSuggestions: false,
-            decoration: const InputDecoration(
-              labelText: '模型名称',
-              prefixIcon: Icon(Icons.memory),
-              border: OutlineInputBorder(),
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: _decoration(
+              label: '模型名称',
+              icon: Icons.memory,
             ),
           ),
           const SizedBox(height: 8),
@@ -189,17 +238,31 @@ class _SettingsPageState extends State<SettingsPage> {
             contentPadding: EdgeInsets.zero,
             value: _aiEnabled,
             onChanged: _setAiEnabled,
-            title: const Text('启用AI识别'),
-            subtitle: const Text('关闭后完全不调用任何大模型接口，只使用本地正则匹配'),
+            activeThumbColor: Colors.white,
+            activeTrackColor: AppColors.primary,
+            title: const Text(
+              '启用AI识别',
+              style: TextStyle(color: AppColors.textPrimary),
+            ),
+            subtitle: const Text(
+              '关闭后完全不调用任何大模型接口，只使用本地正则匹配',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+            ),
           ),
-          const Divider(height: 32),
+          const Divider(height: 32, color: AppColors.divider),
           _sectionTitle('本地数据'),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.storage),
-            title: const Text('清除本地二维码缓存'),
-            subtitle: Text('当前已缓存 $_cacheCount 条识别记录'),
-            trailing: const Icon(Icons.chevron_right),
+            leading: const Icon(Icons.storage, color: AppColors.textSecondary),
+            title: const Text(
+              '清除本地二维码缓存',
+              style: TextStyle(color: AppColors.textPrimary),
+            ),
+            subtitle: Text(
+              '当前已缓存 $_cacheCount 条识别记录',
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: AppColors.textFaint),
             onTap: _confirmClearCache,
           ),
           const SizedBox(height: 8),
@@ -207,20 +270,43 @@ class _SettingsPageState extends State<SettingsPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white10,
+              color: AppColors.infoBlock,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.glassBorder),
             ),
             child: const Text(
               '说明：AI识别仅用于本地正则无法识别的二维码，识别结果会保存在本机缓存节省token。\n'
               'iOS系统限制：本软件仅能唤起目标App，无法自动完成扫码，打开App后需要您手动点击扫码。',
-              style: TextStyle(fontSize: 12.5, height: 1.6, color: Colors.white70),
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.6,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.infoBlock,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.glassBorder),
+            ),
+            child: Text(
+              '本地已内置 ${RegexRouter.ruleCount} 条平台识别规则，命中即离线跳转，不消耗 token。',
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.6,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
           const SizedBox(height: 28),
           const Center(
             child: Text(
               'QRLinkRouter  v${AppConstants.appVersion}',
-              style: TextStyle(fontSize: 12, color: Colors.white38),
+              style: TextStyle(fontSize: 12, color: AppColors.textFaint),
             ),
           ),
         ],
@@ -236,7 +322,7 @@ class _SettingsPageState extends State<SettingsPage> {
         style: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF3DDC84),
+          color: AppColors.primary,
         ),
       ),
     );

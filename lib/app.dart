@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/app_theme.dart';
 import 'data/models/app_settings.dart';
 import 'data/qr_cache_store.dart';
 import 'data/settings_store.dart';
@@ -41,12 +42,10 @@ class _QRLinkRouterAppState extends State<QRLinkRouterApp> {
     return MaterialApp(
       title: 'QRLinkRouter',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: const Color(0xFF3DDC84),
-        scaffoldBackgroundColor: Colors.black,
-      ),
+      // 修改点5：统一使用新的深色主题
+      theme: AppTheme.dark(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.dark,
       home: ScanPage(
         settings: _settings,
         onSettingsChanged: _updateSettings,

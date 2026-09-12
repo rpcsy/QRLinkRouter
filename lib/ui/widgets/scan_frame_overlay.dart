@@ -2,8 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// 半透明取景框 + 四角定位标记。
-class ScanFrameOverlay extends StatelessWidget {
+import '../../core/app_theme.dart';
+
+/// 修改点5：取景框改为有状态组件，加入「缓慢呼吸」动画引导用户对准二维码。
+///
+/// - 边角使用主题主色 #2979FF 高亮
+/// - 呼吸时主色描边的亮度/粗细轻微起伏（周期 1.8 秒，来回往复）
+/// - 全屏半透明蒙版，仅取景框内部透明
+class ScanFrameOverlay extends StatefulWidget {
   const ScanFrameOverlay({super.key, this.frameSize = 260, this.hint});
 
   /// 取景框边长
@@ -13,31 +19,67 @@ class ScanFrameOverlay extends StatelessWidget {
   final String? hint;
 
   @override
+  State<ScanFrameOverlay> createState() => _ScanFrameOverlayState();
+}
+
+class _ScanFrameOverlayState extends State<ScanFrameOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _breath;
+
+  @override
+  void initState() {
+    super.initState();
+    // 修改点5：呼吸动画，1.8 秒一个来回，无限循环
+    _breath = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _breath.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        return SizedBox.expand(
-          child: CustomPaint(
-            painter: _ScanFramePainter(frameSize: frameSize, hint: hint),
-          ),
-        );
-      },
+    return SizedBox.expand(
+      child: AnimatedBuilder(
+        animation: _breath,
+        builder: (BuildContext context, Widget? child) {
+          return CustomPaint(
+            painter: _ScanFramePainter(
+              frameSize: widget.frameSize,
+              hint: widget.hint,
+              // 0 → 1 往复，映射成柔和的正弦曲线，避免生硬的线性呼吸
+              breath: Curves.easeInOut.transform(_breath.value),
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
 class _ScanFramePainter extends CustomPainter {
-  _ScanFramePainter({required this.frameSize, this.hint});
+  _ScanFramePainter({
+    required this.frameSize,
+    required this.breath,
+    this.hint,
+  });
 
   final double frameSize;
+
+  /// 呼吸进度 0..1
+  final double breath;
 
   /// 取景框下方提示文字
   final String? hint;
 
-  static const double _radius = 16;
+  static const double _radius = 20;
   static const double _cornerLength = 34;
   static const double _cornerWidth = 4.5;
-  static const Color _cornerColor = Color(0xFF3DDC84);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -47,28 +89,33 @@ class _ScanFramePainter extends CustomPainter {
       height: frameSize,
     );
 
-    // 1) 遮罩：整屏半透明黑，中间挖空
+    // 1) 蒙版：整屏半透明黑，中间挖空（仅取景框区域透明）
     final Path scrim = Path()
       ..addRect(Offset.zero & size)
       ..addRRect(RRect.fromRectAndRadius(frame, const Radius.circular(_radius)))
       ..fillType = PathFillType.evenOdd;
     canvas.drawPath(scrim, Paint()..color = const Color(0x99000000));
 
-    // 2) 取景框描边
+    // 2) 取景框描边（主色，随呼吸微微变亮）
     canvas.drawRRect(
       RRect.fromRectAndRadius(frame, const Radius.circular(_radius)),
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2
-        ..color = const Color(0x66FFFFFF),
+        ..color = const Color(0x33FFFFFF),
     );
 
-    // 3) 四角定位标记
+    // 3) 四角定位标记：主题主色高亮 + 呼吸发光
+    final Color cornerColor = Color.lerp(
+      AppColors.primary,
+      const Color(0xFF7FB0FF),
+      breath,
+    )!;
     final Paint cornerPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = _cornerWidth
+      ..strokeWidth = _cornerWidth + breath * 0.8
       ..strokeCap = StrokeCap.round
-      ..color = _cornerColor;
+      ..color = cornerColor;
 
     final double len = math.min(_cornerLength, frameSize / 3);
     final Path corners = Path()
@@ -99,14 +146,14 @@ class _ScanFramePainter extends CustomPainter {
 
     canvas.drawPath(corners, cornerPaint);
 
-    // 4) 取景框下方提示文字（保留系统字体，不使用任何私有 API）
+    // 4) 取景框下方提示文字
     final String? text = hint;
     if (text != null && text.isNotEmpty) {
       final TextPainter painter = TextPainter(
         text: TextSpan(
           text: text,
           style: const TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.w500,
             shadows: <Shadow>[
@@ -119,17 +166,16 @@ class _ScanFramePainter extends CustomPainter {
 
       painter.paint(
         canvas,
-        Offset(
-          (size.width - painter.width) / 2,
-          frame.bottom + 22,
-        ),
+        Offset((size.width - painter.width) / 2, frame.bottom + 22),
       );
     }
   }
 
   @override
   bool shouldRepaint(covariant _ScanFramePainter oldDelegate) {
-    return oldDelegate.frameSize != frameSize || oldDelegate.hint != hint;
+    return oldDelegate.frameSize != frameSize ||
+        oldDelegate.hint != hint ||
+        oldDelegate.breath != breath;
   }
 }
 
@@ -166,4 +212,3 @@ class ScanVignette extends StatelessWidget {
     );
   }
 }
-
