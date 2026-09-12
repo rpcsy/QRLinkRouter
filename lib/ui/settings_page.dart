@@ -6,6 +6,7 @@ import '../core/app_constants.dart';
 import '../core/app_theme.dart';
 import '../data/models/app_settings.dart';
 import '../data/qr_cache_store.dart';
+import '../services/link_opener.dart';
 import '../services/regex_router.dart';
 import 'widgets/pressable_scale.dart';
 
@@ -38,6 +39,11 @@ class _SettingsPageState extends State<SettingsPage> {
   Timer? _debounce;
   int _cacheCount = 0;
 
+  // ---- 跳转测试（排障用）----
+  late final TextEditingController _probeCtrl;
+  String? _probeResult;
+  bool _probing = false;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +53,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _modelCtrl = TextEditingController(text: s.model);
     _aiEnabled = s.aiEnabled;
     _cacheCount = widget.cacheStore.count;
+    _probeCtrl = TextEditingController(text: 'weixin://');
 
     _baseUrlCtrl.addListener(_onFieldChanged);
     _apiKeyCtrl.addListener(_onFieldChanged);
@@ -63,6 +70,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _baseUrlCtrl.dispose();
     _apiKeyCtrl.dispose();
     _modelCtrl.dispose();
+    _probeCtrl.dispose();
     super.dispose();
   }
 
@@ -130,6 +138,28 @@ class _SettingsPageState extends State<SettingsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('本地缓存已清空')),
     );
+  }
+
+  /// 跳转测试：直接调用 launchUrl，把真实返回值显示出来。
+  /// 用来判断"跳不动"到底出在 scheme 不对、App 没装、还是被系统拦了。
+  Future<void> _runProbe() async {
+    final String scheme = _probeCtrl.text.trim();
+    if (scheme.isEmpty) {
+      setState(() => _probeResult = '请输入一个 scheme，例如 weixin://');
+      return;
+    }
+    setState(() {
+      _probing = true;
+      _probeResult = '正在尝试 $scheme …';
+    });
+    final OpenResult r = await LinkOpener.openScheme(scheme);
+    if (!mounted) return;
+    setState(() {
+      _probing = false;
+      _probeResult = r.ok
+          ? '唤起成功：$scheme\n（${r.detail}）'
+          : '唤起失败：$scheme\n${r.detail}\n\n若 canOpenURL=false 且 App 确实已安装，请检查 Info.plist 白名单。';
+    });
   }
 
   Future<void> _goBack() async {
@@ -302,6 +332,52 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          _sectionTitle('跳转测试（排障用）'),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: TextField(
+                  controller: _probeCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: _decoration(
+                    label: '测试 scheme',
+                    icon: Icons.bug_report,
+                    helper: '例如 weixin:// 、alipays:// 、taobao://' ,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              PressableScale(
+                child: FilledButton(
+                  onPressed: _probing ? null : _runProbe,
+                  child: const Text('测试'),
+                ),
+              ),
+            ],
+          ),
+          if (_probeResult != null) ...<Widget>[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.infoBlock,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.glassBorder),
+              ),
+              child: Text(
+                _probeResult!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 28),
           const Center(
             child: Text(

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qr_link_router/data/models/qr_route_result.dart';
 import 'package:qr_link_router/services/regex_router.dart';
 
 void main() {
@@ -209,5 +210,53 @@ void main() {
         '酷狗音乐', 'QQ音乐', '招商银行', '交通银行',
       ]),
     );
+  });
+  group('候选 scheme（本次修复：主 scheme 失败自动回退）', () {
+    test('抖音包含 snssdk1128:// 候选', () {
+      final r = RegexRouter.match('https://v.douyin.com/abc/');
+      expect(r!.allSchemes, contains('douyin://'));
+      expect(r.allSchemes, contains('snssdk1128://'));
+      expect(r.allSchemes.first, 'douyin://');
+    });
+
+    test('小红书包含 xhsdiscover:// 候选', () {
+      final r = RegexRouter.match('https://xhslink.com/a/abc');
+      expect(r!.allSchemes, containsAll(<String>['xhs://', 'xhsdiscover://']));
+    });
+
+    test('京东 / 高德 / 微博 / 飞书 / 美团 的候选', () {
+      expect(RegexRouter.match('https://item.jd.com/1.html')!.allSchemes,
+          contains('openapp.jdmobile://'));
+      expect(RegexRouter.match('https://www.amap.com/1')!.allSchemes,
+          contains('amapuri://'));
+      expect(RegexRouter.match('https://weibo.com/u/1')!.allSchemes,
+          contains('sinaweibo://'));
+      expect(RegexRouter.match('https://www.feishu.cn/1')!.allSchemes,
+          contains('feishu://'));
+      expect(RegexRouter.match('https://www.meituan.com/1')!.allSchemes,
+          contains('imeituan://'));
+    });
+
+    test('allSchemes 去重且主 scheme 在最前', () {
+      final r = RegexRouter.match('https://v.douyin.com/abc/');
+      final list = r!.allSchemes;
+      expect(list.first, 'douyin://');
+      expect(list.toSet().length, list.length);
+    });
+
+    test('缓存读写保留候选 scheme（兼容新老格式）', () {
+      final r = RegexRouter.match('https://v.douyin.com/abc/')!;
+      final restored = QrRouteResult.fromCacheMap(r.toCacheMap(), r.rawText);
+      expect(restored, isNotNull);
+      expect(restored!.allSchemes, contains('snssdk1128://'));
+
+      // 模拟旧缓存：没有 schemeAlts 字段，也不能崩
+      final legacy = QrRouteResult.fromCacheMap(
+        <String, dynamic>{'app': '抖音', 'scheme': 'douyin://'},
+        'https://v.douyin.com/abc/',
+      );
+      expect(legacy, isNotNull);
+      expect(legacy!.allSchemes, <String>['douyin://']);
+    });
   });
 }

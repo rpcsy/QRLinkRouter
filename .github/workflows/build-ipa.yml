@@ -94,7 +94,8 @@ jobs:
             for s in weixin douyin alipays alipay taobao bilibili xhs pinduoduo mqq \
                      qzxy pangguai chaoxing workweixin meituan eleme jd orpheus kwai lark \
                      dingtalk ccblife uppay xiaoyuanydt zhxy iosamap baidumap ctrip diditaxi \
-                     dianping weibo zhihu kugou qqmusic cmbmobilebank bankcomm https http; do
+                     dianping weibo zhihu kugou qqmusic cmbmobilebank bankcomm \
+                     snssdk1128 xhsdiscover openapp.jdmobile amapuri sinaweibo feishu imeituan https http; do
               $PB -c "Add :LSApplicationQueriesSchemes: string $s" "$PLIST"
             done
           fi

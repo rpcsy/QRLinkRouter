@@ -2,10 +2,21 @@ import '../data/models/qr_route_result.dart';
 
 /// 一条平台规则
 class _PlatformRule {
-  const _PlatformRule(this.appName, this.scheme, this.patterns);
+  const _PlatformRule(
+    this.appName,
+    this.scheme,
+    this.patterns, {
+    this.alts = const <String>[],
+  });
 
   final String appName;
+
+  /// 主 scheme
   final String scheme;
+
+  /// 候选 scheme：主 scheme 唤起失败时依次尝试
+  final List<String> alts;
+
   final List<RegExp> patterns;
 }
 
@@ -23,7 +34,7 @@ class RegexRouter {
 
   /// 所有规则，越靠前优先级越高
   static final List<_PlatformRule> _rules = <_PlatformRule>[
-    // ================= 修改点2：校园类 App（新增） =================
+    // ================= 校园类 App =================
     // 企业微信：必须排在「微信」之前
     _PlatformRule('企业微信', 'workweixin://', <RegExp>[
       RegExp(r'^https?://work\.weixin\.qq\.com/', caseSensitive: false),
@@ -55,25 +66,27 @@ class RegexRouter {
       RegExp(r'^weixin://', caseSensitive: false),
       RegExp(r'^https?://mp\.weixin\.qq\.com/', caseSensitive: false),
       RegExp(r'^https?://(www\.)?weixin\.qq\.com/', caseSensitive: false),
+      RegExp(r'^https?://u\.wechat\.com/', caseSensitive: false),
     ]),
     _PlatformRule('抖音', 'douyin://', <RegExp>[
       RegExp(r'^https?://v\.douyin\.com/', caseSensitive: false),
       RegExp(r'^https?://(www\.)?douyin\.com/', caseSensitive: false),
       RegExp(r'^https?://(www\.)?iesdouyin\.com/', caseSensitive: false),
       RegExp(r'^douyin://', caseSensitive: false),
-    ]),
+    ], alts: <String>['snssdk1128://']),
     _PlatformRule('支付宝', 'alipays://', <RegExp>[
       RegExp(r'^https?://qr\.alipay\.com/', caseSensitive: false),
       RegExp(r'^https?://(www\.)?alipay\.com/', caseSensitive: false),
       RegExp(r'^alipays://', caseSensitive: false),
       RegExp(r'^alipay://', caseSensitive: false),
-    ]),
+    ], alts: <String>['alipay://']),
     _PlatformRule('淘宝', 'taobao://', <RegExp>[
       RegExp(r'^https?://m\.tb\.cn/', caseSensitive: false),
       RegExp(r'^https?://e\.tb\.cn/', caseSensitive: false),
       RegExp(r'^https?://(www\.)?tb\.cn/', caseSensitive: false),
       RegExp(r'^https?://item\.taobao\.com/', caseSensitive: false),
       RegExp(r'^https?://[^/]*taobao\.com/', caseSensitive: false),
+      RegExp(r'^https?://[^/]*tmall\.com/', caseSensitive: false),
     ]),
     _PlatformRule('哔哩哔哩', 'bilibili://', <RegExp>[
       RegExp(r'^https?://b23\.tv/', caseSensitive: false),
@@ -84,14 +97,14 @@ class RegexRouter {
       RegExp(r'^https?://xhslink\.com/', caseSensitive: false),
       RegExp(r'^https?://(www\.)?xiaohongshu\.com/', caseSensitive: false),
       RegExp(r'^xhs://', caseSensitive: false),
-    ]),
+    ], alts: <String>['xhsdiscover://']),
     _PlatformRule('拼多多', 'pinduoduo://', <RegExp>[
       RegExp(r'^https?://mobile\.yangkeduo\.com/', caseSensitive: false),
       RegExp(r'^https?://(www\.)?yangkeduo\.com/', caseSensitive: false),
       RegExp(r'^pinduoduo://', caseSensitive: false),
     ]),
 
-    // ================= 修改点2：日常通用 App（新增） =================
+    // ================= 日常通用 App =================
     // QQ音乐：必须排在 QQ 之前
     _PlatformRule('QQ音乐', 'qqmusic://', <RegExp>[
       RegExp(r'^https?://y\.qq\.com/', caseSensitive: false),
@@ -111,12 +124,12 @@ class RegexRouter {
       RegExp(r'^https?://[^/]*feishu\.cn/', caseSensitive: false),
       RegExp(r'^https?://[^/]*larksuite\.com/', caseSensitive: false),
       RegExp(r'^lark://', caseSensitive: false),
-    ]),
+    ], alts: <String>['feishu://']),
     _PlatformRule('美团', 'meituan://', <RegExp>[
       RegExp(r'^https?://[^/]*meituan\.com/', caseSensitive: false),
       RegExp(r'^https?://[^/]*meituan\.net/', caseSensitive: false),
       RegExp(r'^meituan://', caseSensitive: false),
-    ]),
+    ], alts: <String>['imeituan://']),
     // 按需求规格：大众点评单独用 dianping://
     _PlatformRule('大众点评', 'dianping://', <RegExp>[
       RegExp(r'^https?://[^/]*dianping\.com/', caseSensitive: false),
@@ -130,7 +143,7 @@ class RegexRouter {
       RegExp(r'^https?://[^/]*jd\.com/', caseSensitive: false),
       RegExp(r'^https?://3\.cn/', caseSensitive: false),
       RegExp(r'^openapp\.jd\.com', caseSensitive: false),
-    ]),
+    ], alts: <String>['openapp.jdmobile://']),
     _PlatformRule('快手', 'kwai://', <RegExp>[
       RegExp(r'^https?://v\.kuaishou\.com/', caseSensitive: false),
       RegExp(r'^https?://[^/]*kuaishou\.com/', caseSensitive: false),
@@ -144,7 +157,7 @@ class RegexRouter {
     _PlatformRule('高德地图', 'iosamap://', <RegExp>[
       RegExp(r'^https?://[^/]*amap\.com/', caseSensitive: false),
       RegExp(r'^iosamap://', caseSensitive: false),
-    ]),
+    ], alts: <String>['amapuri://']),
     _PlatformRule('百度地图', 'baidumap://', <RegExp>[
       RegExp(r'^https?://map\.baidu\.com/', caseSensitive: false),
       RegExp(r'^https?://[^/]*map\.baidu\.com/', caseSensitive: false),
@@ -164,7 +177,7 @@ class RegexRouter {
       RegExp(r'^https?://[^/]*weibo\.com/', caseSensitive: false),
       RegExp(r'^https?://[^/]*weibo\.cn/', caseSensitive: false),
       RegExp(r'^sinaweibo://', caseSensitive: false),
-    ]),
+    ], alts: <String>['sinaweibo://']),
     _PlatformRule('知乎', 'zhihu://', <RegExp>[
       RegExp(r'^https?://[^/]*zhihu\.com/', caseSensitive: false),
       RegExp(r'^https?://[^/]*zhihu\.cn/', caseSensitive: false),
@@ -210,6 +223,7 @@ class RegexRouter {
           return QrRouteResult(
             appName: rule.appName,
             scheme: rule.scheme,
+            schemeAlts: rule.alts,
             rawText: text,
             source: RouteSource.regex,
           );

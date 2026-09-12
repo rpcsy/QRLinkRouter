@@ -3,7 +3,7 @@ class AppConstants {
   AppConstants._();
 
   /// 设置页底部展示的版本号（与 pubspec.yaml 的 version 保持一致）
-  static const String appVersion = '1.1.0+2';
+  static const String appVersion = '1.1.1+3';
 
   /// 默认模型名称
   static const String defaultModel = 'deepseek-v4-flash';

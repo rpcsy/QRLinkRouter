@@ -69,8 +69,10 @@ class _QrResultDialogState extends State<QrResultDialog> {
   bool _busy = false;
 
   Future<void> _openTargetApp() async {
-    final String? scheme = widget.result.scheme;
-    if (scheme == null || scheme.trim().isEmpty) {
+    // 【本次修复】不再先问 canLaunchUrl，直接尝试唤起；
+    // 主 scheme 失败会自动依次尝试候选 scheme（douyin:// → snssdk1128:// 等）。
+    final List<String> schemes = widget.result.allSchemes;
+    if (schemes.isEmpty) {
       await _openInBrowser();
       return;
     }
@@ -80,17 +82,18 @@ class _QrResultDialogState extends State<QrResultDialog> {
       _status = null;
     });
 
-    final bool ok = await LinkOpener.openScheme(scheme);
+    final OpenResult result = await LinkOpener.openSchemes(schemes);
     if (!mounted) return;
 
-    if (ok) {
+    if (result.ok) {
       Navigator.of(context).pop();
       return;
     }
 
     // 唤起失败：设备未安装目标 App → 提示后浏览器兜底（原有逻辑不变）
-    setState(() => _status = '未检测到该App，即将在浏览器打开链接');
-    await Future<void>.delayed(const Duration(milliseconds: 900));
+    // 把具体原因一并显示出来，便于定位到底卡在哪一步
+    setState(() => _status = '未检测到该App，将用浏览器打开链接\n${result.detail}');
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
     await _openInBrowser();
   }
@@ -234,7 +237,8 @@ class _QrResultDialogState extends State<QrResultDialog> {
                   Text(
                     _status!,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 12,
+                      height: 1.4,
                       color: AppColors.primary,
                     ),
                   ),
