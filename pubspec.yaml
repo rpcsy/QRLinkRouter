@@ -1,0 +1,37 @@
+name: qr_link_router
+description: 二维码聚合跳转助手 - 扫码后唤起对应 App
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # 相机实时扫码（iOS 底层 AVFoundation，本地解码，不联网）
+  mobile_scanner: ^5.2.3
+
+  # 通过 URL Scheme 唤起其他 App
+  url_launcher: ^6.3.0
+
+  # OpenAI 兼容接口（codex-proxy）
+  dio: ^5.7.0
+
+  # 本地缓存二维码识别结果
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # 设置项持久化
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,27 @@
+# Codemagic 云端构建（GitHub Actions 之外的备选，网页点按钮即可）
+# 免费额度：每月 500 分钟 macOS 构建，不需要 Apple 账号即可出未签名 IPA。
+workflows:
+  ios-unsigned-ipa:
+    name: QRLinkRouter unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Flutter pub get
+        script: flutter pub get
+      - name: Build iOS without codesign
+        script: flutter build ios --release --no-codesign
+      - name: Package IPA
+        script: |
+          set -e
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry QRLinkRouter.ipa Payload
+          rm -rf Payload
+          ls -lh QRLinkRouter.ipa
+    artifacts:
+      - QRLinkRouter.ipa

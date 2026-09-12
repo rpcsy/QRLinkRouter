@@ -1,0 +1,130 @@
+# 在 GitHub 免费 macOS 机器上构建「未签名 IPA」
+#
+# 你不需要 Mac、不需要 Apple 账号、不需要证书、不需要描述文件。
+# 这个流水线会：
+#   1) 装 Flutter（stable）
+#   2) 用 flutter create 生成缺失的 iOS 工程骨架（Runner.xcodeproj 等）
+#   3) 注入相机权限说明 / LSApplicationQueriesSchemes / iOS 15.0 部署目标
+#   4) flutter build ios --release --no-codesign
+#   5) 打包成 Payload/QRLinkRouter.ipa 并作为 Artifact 上传
+#
+# 下载到的 IPA 直接交给 SideStore / AltStore（或你自己的自签方式）安装。
+#
+# 注意：公开仓库（Public）用 macOS runner 免费；私有仓库按 10 倍时长扣免费额度。
+
+name: Build unsigned IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Build iOS IPA (no codesign)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show toolchain versions
+        run: |
+          flutter --version
+          xcodebuild -version
+          pod --version
+
+      # 本仓库只带 Podfile 和业务代码，iOS 的 xcodeproj 骨架由这里生成。
+      # 只补缺失文件，已经存在的 Podfile / 业务文件不会被覆盖。
+      - name: Scaffold missing iOS project files
+        run: |
+          set -e
+          rm -rf /tmp/scaffold
+          mkdir -p /tmp/scaffold
+          flutter create \
+            --platforms=ios \
+            --org com.example \
+            --project-name qr_link_router \
+            --overwrite \
+            /tmp/scaffold/qr_link_router
+          if command -v rsync >/dev/null 2>&1; then
+            rsync -a --ignore-existing /tmp/scaffold/qr_link_router/ios/ ./ios/
+          else
+            cp -Rn /tmp/scaffold/qr_link_router/ios/. ./ios/
+          fi
+          echo "--- ios/ 目录内容 ---"
+          ls -la ios/
+          ls -la ios/Runner/ | head -20
+
+      - name: Normalize bundle id and deployment target (iOS 15.0)
+        run: |
+          set -e
+          PBX=ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/com\.example\.qrLinkRouter/com.example.QRLinkRouter/g' "$PBX"
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9][0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' "$PBX"
+          echo "bundle id 出现次数: $(grep -c 'com.example.QRLinkRouter' "$PBX")"
+          echo "部署目标 15.0 次数: $(grep -c 'IPHONEOS_DEPLOYMENT_TARGET = 15.0' "$PBX")"
+
+      # 关键：没有 NSCameraUsageDescription，iOS 会在申请相机时直接杀掉进程。
+      # 没有 LSApplicationQueriesSchemes，canLaunchUrl 永远返回 false。
+      - name: Inject Info.plist keys
+        run: |
+          set -e
+          PLIST=ios/Runner/Info.plist
+          PB=/usr/libexec/PlistBuddy
+          test -f "$PLIST"
+          $PB -c "Set :CFBundleDisplayName QRLinkRouter" "$PLIST" 2>/dev/null \
+            || $PB -c "Add :CFBundleDisplayName string QRLinkRouter" "$PLIST"
+          $PB -c "Set :NSCameraUsageDescription 需要相机权限来扫描二维码" "$PLIST" 2>/dev/null \
+            || $PB -c "Add :NSCameraUsageDescription string 需要相机权限来扫描二维码" "$PLIST"
+          $PB -c "Delete :LSApplicationQueriesSchemes" "$PLIST" 2>/dev/null || true
+          $PB -c "Add :LSApplicationQueriesSchemes array" "$PLIST"
+          for s in douyin weixin alipays alipay taobao bilibili xhs pinduoduo https http; do
+            $PB -c "Add :LSApplicationQueriesSchemes: string $s" "$PLIST"
+          done
+          echo "--- 注入结果 ---"
+          $PB -c "Print :NSCameraUsageDescription" "$PLIST"
+          $PB -c "Print :LSApplicationQueriesSchemes" "$PLIST"
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Analyze (不影响出包)
+        continue-on-error: true
+        run: flutter analyze
+
+      - name: Unit tests (不影响出包)
+        continue-on-error: true
+        run: flutter test
+
+      - name: Build iOS (release, no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package into .ipa
+        run: |
+          set -e
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "::error::找不到 $APP_PATH，构建可能失败"
+            exit 1
+          fi
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -qry QRLinkRouter.ipa Payload
+          rm -rf Payload
+          ls -lh QRLinkRouter.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: QRLinkRouter-ipa
+          path: QRLinkRouter.ipa
+          if-no-files-found: error
+          retention-days: 30

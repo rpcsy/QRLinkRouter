@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  QRLinkRouter 参考版 Info.plist
+
+  重要：不要整份覆盖 flutter create 生成的文件。
+  只把下面标了【新增】/【修改】的 key 合并进 ios/Runner/Info.plist，
+  其余 key（尤其是 UIApplicationSceneManifest、UILaunchStoryboardName 等）保持
+  flutter create 生成的默认值，否则可能出现白屏。
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+
+	<!-- 【修改】桌面图标下方显示的名字 -->
+	<key>CFBundleDisplayName</key>
+	<string>QRLinkRouter</string>
+
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>QRLinkRouter</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+
+	<!-- 【新增】相机权限说明，必须与 App 内弹窗文案一致 -->
+	<key>NSCameraUsageDescription</key>
+	<string>需要相机权限来扫描二维码</string>
+
+	<!-- 【新增】声明本 App 会查询这些 URL Scheme。
+	     没有这一段，canLaunchUrl 在 iOS 上会直接返回 false，
+	     表现就是「永远提示未安装该 App」。这是苹果公开标准要求，不是私有 API。 -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>douyin</string>
+		<string>weixin</string>
+		<string>alipays</string>
+		<string>alipay</string>
+		<string>taobao</string>
+		<string>bilibili</string>
+		<string>xhs</string>
+		<string>pinduoduo</string>
+		<string>https</string>
+		<string>http</string>
+	</array>
+
+	<!-- 【新增】ATS：只允许安全传输，不开 ArbitraryLoads。
+	     如果你自己的 codex-proxy 只有 http，需要单独加例外域名（见 README）。 -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
+
+	<!-- 【新增】保留顶部状态栏，白字（深色相机背景） -->
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+
+	<!-- 【新增】只允许竖屏 -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+</dict>
+</plist>
